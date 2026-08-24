@@ -29,7 +29,7 @@ Convertidor/descargador de videos multi-plataforma, gratuito, sin anuncios y de 
 # Clonar el repositorio
 git clone https://github.com/MayorFabDV/Convertidor_de_mp3_y_mp4
 .git
-cd TU_REPO
+cd Convertidor_de_mp3_y_mp4
 
 # Crear entorno virtual
 python -m venv venv
