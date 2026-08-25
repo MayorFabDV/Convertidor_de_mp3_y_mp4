@@ -2,6 +2,8 @@
 
 Convertidor/descargador de videos multi-plataforma, gratuito, sin anuncios y de código abierto.
 
+¡¡¡ADVERTENCIA EL ANTIVIRUS PUEDE MARVAR DE FALSO POSITIVO EL PROGRAMA POR EL METODO DE yt-dlp EN VIRUS TOTAL SOLO DOS DE 67 (six seven xd) ANTIVIRUS COMO LO SON MICROSOFT DEFENDER LO MARCAN DE VIRUS!!!
+
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Ads](https://img.shields.io/badge/Ads-0-red)
