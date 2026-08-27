@@ -93,6 +93,19 @@ class UniversalConverter(ctk.CTk):
         )
         self.history_btn.grid(row=5, column=0, padx=20, pady=(10, 10), sticky="ew")
 
+       
+        self.github_btn = ctk.CTkButton(
+            self.sidebar, text="🐙 Ver código en GitHub", command=self.open_github,
+            fg_color="#24292e", hover_color="#40464e", font=ctk.CTkFont(size=13, weight="bold"), height=38, corner_radius=8
+        )
+        self.github_btn.grid(row=5, column=0, padx=20, pady=(10, 5), sticky="ew")
+
+        self.donate_btn = ctk.CTkButton(
+            self.sidebar, text="☕ Invítame un café", command=self.open_donation,
+            fg_color="#FF5F5F", hover_color="#E04848", font=ctk.CTkFont(size=13, weight="bold"), height=38, corner_radius=8
+        )
+        self.donate_btn.grid(row=6, column=0, padx=20, pady=(5, 10), sticky="ew")
+
         self.donate_btn = ctk.CTkButton(
             self.sidebar, text="☕ Invítame un café", command=self.open_donation,
             fg_color="#FF5F5F", hover_color="#E04848", font=ctk.CTkFont(size=13, weight="bold"), height=38, corner_radius=8
@@ -497,6 +510,10 @@ class UniversalConverter(ctk.CTk):
         url = "https://ko-fi.com/bafyam" 
         webbrowser.open(url)
         self.log("¡Gracias por considerar apoyar el proyecto!")
+    def open_github(self):
+        url = "https://github.com/MayorFabDV/Convertidor_de_mp3_y_mp4"
+        webbrowser.open(url)
+        self.log("🐙 ¡Abriendo el repositorio en tu navegador! Código 100% abierto y seguro.")    
 
 if __name__ == "__main__":
     app = UniversalConverter()
