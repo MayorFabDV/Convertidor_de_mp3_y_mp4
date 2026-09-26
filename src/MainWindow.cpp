@@ -3,6 +3,8 @@
 #include <QHBoxLayout>
 #include <QFrame>
 #include <QStandardPaths>
+#include <QCoreApplication>
+#include <QRegularExpression>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     setWindowTitle("Convertidor mp3 y mp4 - Media (C++ Edition)");
@@ -306,6 +308,7 @@ void MainWindow::onDownloadClicked() {
         else if (qualityText.contains("192")) audioQuality = "4";
         else audioQuality = "5";
 
+        arguments << "-f" << "bestaudio/best";
         arguments << "-x" << "--audio-format" << "mp3" << "--audio-quality" << audioQuality;
         log("Preparando MP3 - Calidad: " + qualityText);
     }
@@ -317,7 +320,8 @@ void MainWindow::onDownloadClicked() {
         else if (qualityText.contains("480")) heightFilter = "480";
         else heightFilter = "360";
 
-        arguments << "-f" << ("bestvideo[height<=" + heightFilter + "][ext=mp4]/bestvideo[height<=" + heightFilter + "]/bestvideo");
+        arguments << "-f" << QString("bestvideo[height<=%1]/bestvideo/best").arg(heightFilter);
+        arguments << "--remux-video" << "mp4";
         log("Preparando MP4 sin audio - Calidad: " + qualityText);
     }
     else {
@@ -328,7 +332,10 @@ void MainWindow::onDownloadClicked() {
         else if (qualityText.contains("480")) heightFilter = "480";
         else heightFilter = "360";
 
-        arguments << "-f" << ("best[height<=" + heightFilter + "][ext=mp4]/best[height<=" + heightFilter + "]/best");
+        // En YouTube, 1080p y 4K se distribuyen en flujos de video y audio separados (DASH).
+        // bestvideo+bestaudio los descarga y luego ffmpeg los une en MP4 sin perdida.
+        arguments << "-f" << QString("bestvideo[height<=%1]+bestaudio/best[height<=%1]/best").arg(heightFilter);
+        arguments << "--merge-output-format" << "mp4";
         log("Preparando MP4 con audio - Calidad: " + qualityText);
     }
 
@@ -342,10 +349,30 @@ void MainWindow::onDownloadClicked() {
         log("Miniaturas activadas");
     }
 
+    // Ubicacion de ffmpeg (vital para unir audio+video y extraer MP3)
+    QString appDir = QCoreApplication::applicationDirPath();
+    QString ffmpegPath = "";
+    if (QFile::exists(appDir + "/ffmpeg.exe")) {
+        ffmpegPath = appDir + "/ffmpeg.exe";
+    } else if (QFile::exists(QDir::currentPath() + "/ffmpeg.exe")) {
+        ffmpegPath = QDir::currentPath() + "/ffmpeg.exe";
+    }
+    if (!ffmpegPath.isEmpty()) {
+        arguments << "--ffmpeg-location" << ffmpegPath;
+    }
+
     arguments << "-o" << (downloadFolder + "/%(title)s.%(ext)s");
     arguments << url;
 
-    downloadProcess->start("yt-dlp", arguments);
+    // Detectar si yt-dlp.exe esta en la carpeta de la aplicacion o en el PATH
+    QString ytDlpPath = "yt-dlp";
+    if (QFile::exists(appDir + "/yt-dlp.exe")) {
+        ytDlpPath = appDir + "/yt-dlp.exe";
+    } else if (QFile::exists(QDir::currentPath() + "/yt-dlp.exe")) {
+        ytDlpPath = QDir::currentPath() + "/yt-dlp.exe";
+    }
+
+    downloadProcess->start(ytDlpPath, arguments);
     log("Iniciando descarga...");
 }
 
@@ -360,8 +387,12 @@ void MainWindow::onProcessOutput() {
     QByteArray output = downloadProcess->readAllStandardOutput();
     QString text = QString::fromUtf8(output);
 
-    if (text.contains("Downloading") || text.contains("%")) {
-        log(text.trimmed());
+    QStringList lines = text.split(QRegularExpression("[\r\n]+"), Qt::SkipEmptyParts);
+    for (const QString &line : lines) {
+        QString trimmed = line.trimmed();
+        if (!trimmed.isEmpty()) {
+            log(trimmed);
+        }
     }
 }
 
