@@ -7,16 +7,16 @@ import webbrowser
 import subprocess
 import urllib.request
 import json
+import ssl
+import certifi
 from datetime import datetime
 from tkinter import filedialog
 
 # ============================================================================
-# NOTA SOBRE SSL / ANTIVIRUS:
-# Esta línea está comentada por defecto para evitar falsos positivos en antivirus.
-# Si experimentas errores de conexión o certificados SSL al descargar,
-# descomenta la siguiente línea (quita el '#' del inicio):
+# NOTA SOBRE SSL:
+# Se usa certifi para manejar los certificados de forma segura.
+# Esto evita errores de SSL sin desactivar la verificación.
 # ============================================================================
-# ssl._create_default_https_context = ssl._create_unverified_context
 
 # Configuración visual global
 ctk.set_appearance_mode("Dark")
@@ -25,20 +25,37 @@ ctk.set_default_color_theme("blue")
 class UniversalConverter(ctk.CTk):
     def __init__(self):
         super().__init__()
+        # Icono de la ventana (funciona en desarrollo, --onefile y --onedir)
+        if getattr(sys, 'frozen', False):
+            candidate_dirs = [sys._MEIPASS, os.path.dirname(sys.executable)]
+        else:
+            candidate_dirs = [os.path.dirname(os.path.abspath(__file__))]
+        
+        for c_dir in candidate_dirs:
+            ico_file = os.path.join(c_dir, "ico.ico")
+            if os.path.exists(ico_file):
+                try:
+                    self.iconbitmap(ico_file)
+                    break
+                except Exception:
+                    pass
         
         self.title("Convertidor mp3 y mp4 - Bafyam")
         self.geometry("900x620")
         self.minsize(850, 580)
         
         # Obtención de ruta de ffmpeg
-        if getattr(sys, 'frozen', False):
-            application_path = sys._MEIPASS
-        else:
-            application_path = os.path.dirname(os.path.abspath(__file__))
+        self.ffmpeg_path = 'ffmpeg'
+        for c_dir in candidate_dirs:
+            ffmpeg_candidate = os.path.join(c_dir, 'ffmpeg.exe')
+            if os.path.exists(ffmpeg_candidate):
+                self.ffmpeg_path = ffmpeg_candidate
+                break
         
-        self.ffmpeg_path = os.path.join(application_path, 'ffmpeg.exe')
-        if not os.path.exists(self.ffmpeg_path):
-            self.ffmpeg_path = 'ffmpeg'
+        # Configurar SSL usando los certificados de certifi.
+        # Esto es vital para que funcione al compilar con PyInstaller y al descargar.
+        os.environ['SSL_CERT_FILE'] = certifi.where()
+        os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
         
         self.download_folder = os.getcwd()
         
@@ -68,52 +85,47 @@ class UniversalConverter(ctk.CTk):
         self.sidebar.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
         self.sidebar.grid_rowconfigure(4, weight=1)
 
-        title_label = ctk.CTkLabel(self.sidebar, text="⚡ Bafyam Media", font=ctk.CTkFont(size=18, weight="bold"))
+        title_label = ctk.CTkLabel(self.sidebar, text="Bafyam Media", font=ctk.CTkFont(size=18, weight="bold"))
         title_label.grid(row=0, column=0, padx=20, pady=(25, 2), sticky="w")
 
         subtitle_label = ctk.CTkLabel(self.sidebar, text="Convertidor mp3 y mp4", font=ctk.CTkFont(size=11), text_color="gray60")
         subtitle_label.grid(row=1, column=0, padx=20, pady=(0, 20), sticky="w")
 
         self.status_badge = ctk.CTkLabel(
-            self.sidebar, text="● Verificando sistema...", font=ctk.CTkFont(size=12, weight="bold"),
+            self.sidebar, text="Verificando sistema...", font=ctk.CTkFont(size=12, weight="bold"),
             text_color="#F39C12", fg_color="#2C2415", corner_radius=8, height=30
         )
         self.status_badge.grid(row=2, column=0, padx=20, pady=5, sticky="ew")
 
         platforms_info = ctk.CTkLabel(
-            self.sidebar, text="Soporta:\nYouTube • YT Music • TikTok\nInstagram • Facebook • X (Twitter)\nReddit • Twitch • Vimeo • SoundCloud\n¡Y +1000 sitios más!}",
+            self.sidebar, text="Soporta:\nYouTube, YT Music, TikTok\nInstagram, Facebook, X\nReddit, Twitch, Vimeo\nSoundCloud, Dailymotion, Bilibili\n¡Y +1000 sitios más!",
             font=ctk.CTkFont(size=11), text_color="gray50", justify="left"
         )
         platforms_info.grid(row=3, column=0, padx=20, pady=(20, 10), sticky="w")
 
-        # Botón de Historial
+        # Botón de Historial (Fila 5)
         self.history_btn = ctk.CTkButton(
-            self.sidebar, text="📜 Ver Historial", command=self.show_history,
+            self.sidebar, text="Ver Historial", command=self.show_history,
             fg_color="gray25", hover_color="gray35", font=ctk.CTkFont(size=13, weight="bold"), height=38, corner_radius=8
         )
-        self.history_btn.grid(row=5, column=0, padx=20, pady=(10, 10), sticky="ew")
+        self.history_btn.grid(row=5, column=0, padx=20, pady=(10, 5), sticky="ew")
 
-       
+        # Botón de GitHub (Fila 6)
         self.github_btn = ctk.CTkButton(
-            self.sidebar, text="🐙 Ver código en GitHub", command=self.open_github,
+            self.sidebar, text="Ver codigo en GitHub", command=self.open_github,
             fg_color="#24292e", hover_color="#40464e", font=ctk.CTkFont(size=13, weight="bold"), height=38, corner_radius=8
         )
-        self.github_btn.grid(row=5, column=0, padx=20, pady=(10, 5), sticky="ew")
+        self.github_btn.grid(row=6, column=0, padx=20, pady=(5, 5), sticky="ew")
 
+        # Botón de Donación (Fila 7)
         self.donate_btn = ctk.CTkButton(
-            self.sidebar, text="☕ Invítame un café", command=self.open_donation,
+            self.sidebar, text="Invítame un café", command=self.open_donation,
             fg_color="#FF5F5F", hover_color="#E04848", font=ctk.CTkFont(size=13, weight="bold"), height=38, corner_radius=8
         )
-        self.donate_btn.grid(row=6, column=0, padx=20, pady=(5, 10), sticky="ew")
+        self.donate_btn.grid(row=7, column=0, padx=20, pady=(5, 10), sticky="ew")
 
-        self.donate_btn = ctk.CTkButton(
-            self.sidebar, text="☕ Invítame un café", command=self.open_donation,
-            fg_color="#FF5F5F", hover_color="#E04848", font=ctk.CTkFont(size=13, weight="bold"), height=38, corner_radius=8
-        )
-        self.donate_btn.grid(row=6, column=0, padx=20, pady=(10, 10), sticky="ew")
-
-        self.footer = ctk.CTkLabel(self.sidebar, text="Hecho con ❤️ y 0 anuncios", text_color="gray40", font=ctk.CTkFont(size=10))
-        self.footer.grid(row=7, column=0, padx=20, pady=(0, 15))
+        self.footer = ctk.CTkLabel(self.sidebar, text="Hecho con cariño y 0 anuncios", text_color="gray40", font=ctk.CTkFont(size=10))
+        self.footer.grid(row=8, column=0, padx=20, pady=(0, 15))
 
     def _setup_main_panel(self):
         """Panel derecho agrupado en Cards modulares."""
@@ -140,7 +152,7 @@ class UniversalConverter(ctk.CTk):
         folder_box.grid(row=2, column=0, padx=15, pady=(0, 5), sticky="ew")
         folder_box.grid_columnconfigure(1, weight=1)
 
-        folder_icon = ctk.CTkLabel(folder_box, text="📁 Guardar en:", font=ctk.CTkFont(size=12))
+        folder_icon = ctk.CTkLabel(folder_box, text="Guardar en:", font=ctk.CTkFont(size=12))
         folder_icon.grid(row=0, column=0, padx=(0, 10), sticky="w")
 
         display_path = self.download_folder if len(self.download_folder) <= 45 else self.download_folder[:42] + "..."
@@ -166,11 +178,11 @@ class UniversalConverter(ctk.CTk):
         self.format_seg.grid(row=1, column=0, columnspan=2, padx=15, pady=(0, 15), sticky="ew")
 
         self.subtitles_var = ctk.BooleanVar(value=False)
-        self.subtitles_switch = ctk.CTkSwitch(card_options, text="📝 Subtítulos (Si está disponible)", variable=self.subtitles_var)
+        self.subtitles_switch = ctk.CTkSwitch(card_options, text="Subtítulos (Si está disponible)", variable=self.subtitles_var)
         self.subtitles_switch.grid(row=2, column=0, padx=15, pady=5, sticky="w")
 
         self.thumbnail_var = ctk.BooleanVar(value=False)
-        self.thumbnail_switch = ctk.CTkSwitch(card_options, text="🖼️ Miniatura (Si está disponible)", variable=self.thumbnail_var)
+        self.thumbnail_switch = ctk.CTkSwitch(card_options, text="Miniatura (Si está disponible)", variable=self.thumbnail_var)
         self.thumbnail_switch.grid(row=2, column=1, padx=15, pady=5, sticky="w")
 
         # --- CARD 3: Control de Descarga y Consola ---
@@ -208,7 +220,6 @@ class UniversalConverter(ctk.CTk):
             self.status_text.insert("end", message + "\n")
             self.status_text.see("end")
             self.status_text.configure(state="disabled")
-            self.update()
         except Exception:
             pass
 
@@ -245,7 +256,7 @@ class UniversalConverter(ctk.CTk):
     def show_history(self):
         """Abre una ventana emergente con el historial"""
         history_window = ctk.CTkToplevel(self)
-        history_window.title("📜 Historial de Descargas")
+        history_window.title("Historial de Descargas")
         history_window.geometry("500x400")
         history_window.attributes("-topmost", True)
         
@@ -260,15 +271,15 @@ class UniversalConverter(ctk.CTk):
                 history = json.load(f)
             
             if not history:
-                textbox.insert("end", "📭 No hay descargas recientes.\n¡Descarga algo para verlo aquí!")
+                textbox.insert("end", "No hay descargas recientes.\n¡Descarga algo para verlo aquí!")
             else:
                 for item in history:
-                    textbox.insert("end", f"📅 {item['fecha']} | {item['plataforma']}\n", "date")
-                    textbox.insert("end", f"🎬 {item['titulo']}\n", "title")
-                    textbox.insert("end", f"🔗 {item['url']}\n", "url")
+                    textbox.insert("end", f"{item['fecha']} | {item['plataforma']}\n", "date")
+                    textbox.insert("end", f"{item['titulo']}\n", "title")
+                    textbox.insert("end", f"{item['url']}\n", "url")
                     textbox.insert("end", "─" * 45 + "\n")
         else:
-            textbox.insert("end", "📭 No hay historial aún.\n¡Descarga algo para verlo aquí!")
+            textbox.insert("end", "No hay historial aún.\n¡Descarga algo para verlo aquí!")
             
         textbox.configure(state="disabled")
         # Colores para el texto del historial
@@ -278,44 +289,49 @@ class UniversalConverter(ctk.CTk):
 
     def check_ytdlp_update(self):
         try:
-            req = urllib.request.Request("https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest", headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=5) as response:
+            # Usamos certifi para el contexto SSL seguro
+            ssl_context = ssl.create_default_context(cafile=certifi.where())
+            
+            req = urllib.request.Request(
+                "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest",
+                headers={'User-Agent': 'Mozilla/5.0'}
+            )
+            with urllib.request.urlopen(req, timeout=5, context=ssl_context) as response:
                 data = json.loads(response.read().decode())
                 latest_version = data['tag_name']
                 current_version = yt_dlp.__version__
                 
                 if latest_version != current_version:
                     def _notify_update():
-                        self.log(f"⚠️ Nueva versión de yt-dlp disponible: {latest_version} (Tienes la {current_version})")
-                        self.status_badge.configure(text="⚠️ Actualización disponible", text_color="#F39C12", fg_color="#2C2415")
+                        self.log(f"Nueva versión de yt-dlp disponible: {latest_version} (Tienes la {current_version})")
+                        self.status_badge.configure(text="Actualización disponible", text_color="#F39C12", fg_color="#2C2415")
                     self.after(0, _notify_update)
                     
                     if not getattr(sys, 'frozen', False):
-                        self.after(0, lambda: self.log("🔄 Intentando actualizar yt-dlp en segundo plano..."))
+                        self.after(0, lambda: self.log("Intentando actualizar yt-dlp en segundo plano..."))
                         threading.Thread(target=self._update_ytdlp_thread, daemon=True).start()
                     else:
-                        self.after(0, lambda: self.log("💡 Nota: Estás usando el .exe. Las actualizaciones del motor vienen en cada nueva versión del programa."))
+                        self.after(0, lambda: self.log("Nota: Estás usando el .exe. Las actualizaciones del motor vienen en cada nueva versión del programa."))
                 else:
                     def _ready():
-                        self.status_badge.configure(text="● Sistema Listo y Actualizado", text_color="#2ECC71", fg_color="#18281E")
-                        self.log("✅ yt-dlp está en su última versión.")
+                        self.status_badge.configure(text="Sistema Listo y Actualizado", text_color="#2ECC71", fg_color="#18281E")
+                        self.log("yt-dlp está en su última versión.")
                     self.after(0, _ready)
         except Exception:
             def _offline():
-                self.status_badge.configure(text="● Sistema Listo (Offline)", text_color="#2ECC71", fg_color="#18281E")
+                self.status_badge.configure(text="Sistema Listo (Offline)", text_color="#2ECC71", fg_color="#18281E")
             self.after(0, _offline)
-            # No mostramos el log de error para no asustar al usuario, el badge verde es suficiente.
 
     def _update_ytdlp_thread(self):
         try:
             result = subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp"], capture_output=True, text=True, timeout=30)
             if result.returncode == 0:
-                self.after(0, lambda: self.log("✅ ¡yt-dlp actualizado correctamente! Reinicia el programa para aplicar cambios."))
-                self.after(0, lambda: self.status_badge.configure(text="● Actualizado", text_color="#2ECC71", fg_color="#18281E"))
+                self.after(0, lambda: self.log("yt-dlp actualizado correctamente! Reinicia el programa para aplicar cambios."))
+                self.after(0, lambda: self.status_badge.configure(text="Actualizado", text_color="#2ECC71", fg_color="#18281E"))
             else:
-                self.after(0, lambda: self.log("❌ No se pudo actualizar automáticamente."))
+                self.after(0, lambda: self.log("No se pudo actualizar automáticamente."))
         except Exception as e:
-            self.after(0, lambda: self.log(f"❌ Error al actualizar: {e}"))
+            self.after(0, lambda: self.log(f"Error al actualizar: {e}"))
 
     def choose_folder(self):
         folder = filedialog.askdirectory()
@@ -323,7 +339,7 @@ class UniversalConverter(ctk.CTk):
             self.download_folder = folder
             display_path = folder if len(folder) <= 45 else folder[:42] + "..."
             self.folder_path_label.configure(text=display_path)
-            self.log(f"📁 Carpeta seleccionada: {folder}")
+            self.log(f"Carpeta seleccionada: {folder}")
 
     def detect_platform(self, url):
         url_lower = url.lower()
@@ -336,6 +352,8 @@ class UniversalConverter(ctk.CTk):
         elif 'twitch.tv' in url_lower: return 'twitch'
         elif 'vimeo.com' in url_lower: return 'vimeo'
         elif 'soundcloud.com' in url_lower: return 'soundcloud'
+        elif 'dailymotion.com' in url_lower: return 'dailymotion'
+        elif 'bilibili.com' in url_lower: return 'bilibili'
         elif 'youtube.com' in url_lower or 'youtu.be' in url_lower: return 'youtube'
         else: return 'universal'
 
@@ -346,19 +364,19 @@ class UniversalConverter(ctk.CTk):
     def start_download(self):
         url = self.url_entry.get().strip()
         if not url:
-            self.log("❌ Error: Debes ingresar una URL")
+            self.log("Error: Debes ingresar una URL")
             return
         
         if not url.startswith(('http://', 'https://')):
-            self.log("❌ Error: La URL debe comenzar con http:// o https://")
+            self.log("Error: La URL debe comenzar con http:// o https://")
             return
         
         self.cancel_event.clear()
         self.is_downloading = True
         
-        self.download_btn.configure(state="disabled", text="⏳ Procesando descarga...", fg_color="gray40")
+        self.download_btn.configure(state="disabled", text="Procesando descarga...", fg_color="gray40")
         self.cancel_btn.configure(state="normal")
-        self.status_badge.configure(text="● Descargando...", text_color="#F1C40F", fg_color="#2C2815")
+        self.status_badge.configure(text="Descargando...", text_color="#F1C40F", fg_color="#2C2815")
         
         self.status_text.configure(state="normal")
         self.status_text.delete("1.0", "end")
@@ -370,7 +388,7 @@ class UniversalConverter(ctk.CTk):
     
     def cancel_download(self):
         if self.is_downloading:
-            self.log("🛑 Solicitando cancelación...")
+            self.log("Solicitando cancelación...")
             self.cancel_event.set()
     
     def download_thread(self, url):
@@ -378,15 +396,15 @@ class UniversalConverter(ctk.CTk):
         is_playlist = self.is_playlist(url)
         
         # Actualizar UI desde hilo secundario de forma segura
-        self.after(0, lambda: self.download_btn.configure(state="disabled", text="⏳ Descargando...", fg_color="gray40"))
+        self.after(0, lambda: self.download_btn.configure(state="disabled", text="Descargando...", fg_color="gray40"))
         self.after(0, lambda: self.cancel_btn.configure(state="normal"))
-        self.after(0, lambda: self.status_badge.configure(text="● Descargando...", text_color="#F1C40F", fg_color="#2C2815"))
+        self.after(0, lambda: self.status_badge.configure(text="Descargando...", text_color="#F1C40F", fg_color="#2C2815"))
         
         if is_playlist:
-            self.log("📋 ¡PLAYLIST DETECTADA! Descargando lista...")
+            self.log("PLAYLIST DETECTADA! Descargando lista...")
         else:
             platform_name = platform.upper() if platform != 'universal' else 'SITIO WEB COMPATIBLE'
-            self.log(f"🔍 Plataforma detectada: {platform_name}")
+            self.log(f"Plataforma detectada: {platform_name}")
         
         selected_fmt_str = self.format_seg.get()
         if selected_fmt_str == "MP3 (Solo Audio)":
@@ -407,19 +425,26 @@ class UniversalConverter(ctk.CTk):
                 percent = d.get('_percent_str', 'N/A').strip()
                 speed = d.get('_speed_str', 'N/A').strip()
                 filename = d.get('filename', '').split('/')[-1].split('\\')[-1]
-                self.log(f"⏳ {filename[:30]}... | {percent} | {speed}")
+                self.log(f"{filename[:30]}... | {percent} | {speed}")
             elif d['status'] == 'finished':
-                self.log("✅ Procesando/Convirtiendo archivo...")
+                self.log("Procesando/Convirtiendo archivo...")
         
         ydl_opts = {
+            # --- Formato y Contenedor ---
+            'format': 'bestvideo+bestaudio/best',
+            'merge_output_format': 'mp4',  # Une en MP4 sin postprocesador problemático
+            'outtmpl': os.path.join(self.download_folder, '%(title)s.%(ext)s'),
+            
+            # --- Callbacks y Logs ---
             'progress_hooks': [progress_hook],
             'quiet': True,
             'no_warnings': True,
+
+            # --- Configuración de Red y FFmpeg ---
             'ffmpeg_location': self.ffmpeg_path,
             'retries': 5,
             'fragment_retries': 5,
             'http_chunk_size': 10485760,
-            'nocheckcertificate': True,
             'socket_timeout': 30,
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         }
@@ -429,51 +454,49 @@ class UniversalConverter(ctk.CTk):
         
         if is_playlist:
             ydl_opts['outtmpl'] = os.path.join(self.download_folder, '%(playlist_title)s', '%(title)s', '%(title)s.%(ext)s')
-            self.log("📁 Organización: Carpeta de playlist + subcarpetas por video")
+            self.log("Organización: Carpeta de playlist + subcarpetas por video")
         else:
             if needs_subfolder:
                 ydl_opts['outtmpl'] = os.path.join(self.download_folder, '%(title)s', '%(title)s.%(ext)s')
-                self.log("📁 Organización: Carpeta con el nombre del video para guardar todo junto")
+                self.log("Organización: Carpeta con el nombre del video para guardar todo junto")
             else:
                 ydl_opts['outtmpl'] = os.path.join(self.download_folder, '%(title)s.%(ext)s')
-                self.log("📁 Guardando archivo directamente en la carpeta seleccionada")
+                self.log("Guardando archivo directamente en la carpeta seleccionada")
         
         if want_subtitles:
-            self.log("📝 Subtítulos activados")
+            self.log("Subtítulos activados")
             ydl_opts['writesubtitles'] = True
             ydl_opts['subtitlesformat'] = 'srt'
             ydl_opts['subtitleslangs'] = ['es', 'en']
         
         if want_thumbnail:
-            self.log("🖼️ Miniaturas activadas")
+            self.log("Miniaturas activadas")
             ydl_opts['writethumbnail'] = True
             ydl_opts['convertthumbnails'] = 'jpg'
         
         if platform == "youtube_music":
-            self.log("🎵 YouTube Music detectado - Optimizando para audio...")
+            self.log("YouTube Music detectado - Optimizando para audio...")
             ydl_opts['format'] = 'bestaudio[ext=m4a]/bestaudio/best'
             ydl_opts['postprocessors'] = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '0'}]
             ydl_opts['addmetadata'] = True
         elif platform == "tiktok":
-            self.log("🎵 TikTok detectado - Descargando SIN marca de agua...")
+            self.log("TikTok detectado - Descargando SIN marca de agua...")
             ydl_opts['user_agent'] = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1'
             ydl_opts['format'] = 'best'
-        elif platform in ["instagram", "facebook", "twitter", "reddit", "twitch", "vimeo", "soundcloud"]:
-            self.log(f"📱 {platform.capitalize()} detectado. Usando formato compatible...")
+        elif platform in ["instagram", "facebook", "twitter", "reddit", "twitch", "vimeo", "soundcloud", "dailymotion", "bilibili"]:
+            self.log(f"{platform.capitalize()} detectado. Usando formato compatible...")
             ydl_opts['format'] = 'best'
         else:
             if format_choice == "mp3":
-                self.log("🎵 Preparando MP3 de alta calidad...")
+                self.log("Preparando MP3 de alta calidad...")
                 ydl_opts['format'] = 'bestaudio/best'
                 ydl_opts['postprocessors'] = [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '0'}]
             elif format_choice == "mp4_audio":
-                self.log("🎬 Preparando MP4 con audio...")
+                self.log("Preparando MP4 con audio...")
                 ydl_opts['format'] = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
-                ydl_opts['postprocessors'] = [{'key': 'FFmpegVideoConvertor', 'preferredformat': 'mp4'}]
             elif format_choice == "mp4_no_audio":
-                self.log("🎬 Preparando MP4 sin audio...")
+                self.log("Preparando MP4 sin audio...")
                 ydl_opts['format'] = 'bestvideo[ext=mp4]/best'
-                ydl_opts['postprocessors'] = [{'key': 'FFmpegVideoConvertor', 'preferredformat': 'mp4'}]
         
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -487,33 +510,42 @@ class UniversalConverter(ctk.CTk):
                 # Guardamos en el historial al finalizar con éxito
                 self.save_to_history(url, title, platform)
             
-            self.log("\n" + "="*40)
-            self.log("🎉 ¡DESCARGA COMPLETADA CON ÉXITO!")
-            self.log(f"📁 Guardado en: {self.download_folder}")
-            self.log("="*40)
+            # Verificamos si fue cancelado para no mostrar el mensaje de éxito
+            if self.cancel_event.is_set():
+                self.log("\n" + "="*40)
+                self.log("DESCARGA CANCELADA POR EL USUARIO")
+                self.log("="*40)
+            else:
+                self.log("\n" + "="*40)
+                self.log("DESCARGA COMPLETADA CON EXITO!")
+                self.log(f"Guardado en: {self.download_folder}")
+                self.log("="*40)
             
         except Exception as e:
             if self.cancel_event.is_set() or "cancelada" in str(e).lower():
-                self.log("\n🛑 Descarga cancelada por el usuario.")
+                self.log("\n" + "="*40)
+                self.log("DESCARGA CANCELADA POR EL USUARIO")
+                self.log("="*40)
             else:
-                self.log(f"\n❌ Error: {e}")
+                self.log(f"\nError: {e}")
                 if platform in ["instagram", "facebook"]:
-                    self.log("💡 Tip: Si es video privado, se requieren cookies del navegador.")
+                    self.log("Tip: Si es video privado, se requieren cookies del navegador.")
         
         finally:
             self.is_downloading = False
             self.after(0, lambda: self.download_btn.configure(state="normal", text="INICIAR DESCARGA", fg_color="#1DB954"))
             self.after(0, lambda: self.cancel_btn.configure(state="disabled"))
-            self.after(0, lambda: self.status_badge.configure(text="● Sistema Listo", text_color="#2ECC71", fg_color="#18281E"))
+            self.after(0, lambda: self.status_badge.configure(text="Sistema Listo", text_color="#2ECC71", fg_color="#18281E"))
 
     def open_donation(self):
         url = "https://ko-fi.com/bafyam" 
         webbrowser.open(url)
-        self.log("¡Gracias por considerar apoyar el proyecto!")
+        self.log("Gracias por considerar apoyar el proyecto!")
+        
     def open_github(self):
         url = "https://github.com/MayorFabDV/Convertidor_de_mp3_y_mp4"
         webbrowser.open(url)
-        self.log("🐙 ¡Abriendo el repositorio en tu navegador! Código 100% abierto y seguro.")    
+        self.log("Abriendo el repositorio en tu navegador! Código 100% abierto y seguro.")    
 
 if __name__ == "__main__":
     app = UniversalConverter()
